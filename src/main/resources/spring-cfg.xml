@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx-4.0.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd"
+>
+
+    <!--扫描注解生成bean-->
+    <context:annotation-config/>
+    <!--包扫描-->
+    <context:component-scan base-package="com.coder520"/>
+
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="mapperLocations" value="classpath:com/coder520/**/**.xml"/>
+    </bean>
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.coder520.*.dao"/>
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+    </bean>
+
+    <!--声明事务管理 采用注解方式-->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <aop:aspectj-autoproxy/>
+    <bean id="switchDataSourceAspect" class="com.coder520.common.DataSourceAspect"/>
+    <aop:config>
+        <aop:aspect ref="switchDataSourceAspect">
+            <aop:pointcut id="tx" expression="execution(* com.coder520.*.service.*.*(..))"/>
+            <aop:before method="before" pointcut-ref="tx"/>
+        </aop:aspect>
+    </aop:config>
+
+
+    <!--数据库设置-->
+    <bean id="masterdataSource" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close" init-method="init">
+        <property name="url" value="${jdbc_url_m}"/>
+        <property name="username" value="${jdbc_username}"/>
+        <property name="password" value="${jdbc_password}"/>
+    </bean>
+    <bean id="slavedataSource_1" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close" init-method="init">
+        <property name="url" value="${jdbc_url_s_1}"/>
+        <property name="username" value="${jdbc_username}"/>
+        <property name="password" value="${jdbc_password}"/>
+    </bean>
+    <bean id="slavedataSource_2" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close" init-method="init">
+        <property name="url" value="${jdbc_url_s_2}"/>
+        <property name="username" value="${jdbc_username}"/>
+        <property name="password" value="${jdbc_password}"/>
+    </bean>
+
+    <!--自定义的数据源-->
+    <bean id="dataSource" class="com.coder520.common.DynamicDataSource">
+        <property name="targetDataSources">
+            <map>
+                <entry key="master" value-ref="masterdataSource"/>
+                <entry key="slave_1" value-ref="slavedataSource_1"/>
+                <entry key="slave_2" value-ref="slavedataSource_2"/>
+            </map>
+        </property>
+        <property name="defaultTargetDataSource" ref="masterdataSource"/>
+    </bean>
+
+
+</beans>
